@@ -1,0 +1,85 @@
+---
+# nginx with basic auth in front of Loki for the auth e2e test.
+# htpasswd -nb e2e-user e2e-pass → e2e-user:$apr1$...
+# Pre-computed hash for "e2e-pass":
+#   e2e-user:$apr1$abc$Mv5a7y.XTvGkgA7wXUqze/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-auth-proxy-config
+  namespace: e2e-infra
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 3200;
+        location / {
+          auth_basic "Loki";
+          auth_basic_user_file /etc/nginx/htpasswd;
+          proxy_pass http://loki.e2e-infra.svc.cluster.local:3100;
+        }
+      }
+    }
+  htpasswd: "e2e-user:$apr1$abc$Mv5a7y.XTvGkgA7wXUqze/"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki-auth-proxy
+  namespace: e2e-infra
+  labels:
+    app: loki-auth-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki-auth-proxy
+  template:
+    metadata:
+      labels:
+        app: loki-auth-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 3200
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: config
+              mountPath: /etc/nginx/htpasswd
+              subPath: htpasswd
+          readinessProbe:
+            httpGet:
+              path: /loki/api/v1/labels
+              port: 3200
+              httpHeaders:
+                - name: Authorization
+                  value: "Basic ZTJlLXVzZXI6ZTJlLXBhc3M="  # e2e-user:e2e-pass
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+      volumes:
+        - name: config
+          configMap:
+            name: loki-auth-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-auth-proxy
+  namespace: e2e-infra
+spec:
+  selector:
+    app: loki-auth-proxy
+  ports:
+    - port: 3200
+      targetPort: 3200

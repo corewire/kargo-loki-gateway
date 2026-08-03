@@ -13,9 +13,10 @@ env:
   LIMIT: "5000"
   LOKI_TIMEOUT: "15s"
   K8S_TIMEOUT: "5s"
-  # LOKI_BASIC_AUTH: "user:password"   # basic auth (e.g. Grafana Cloud)
-  # LOKI_BEARER_TOKEN: ""              # bearer token (e.g. auth proxy)
-  # LOKI_TENANT_ID: ""                 # X-Scope-OrgID for multi-tenant Loki
+  # LOKI_USERNAME: ""       # basic auth username (e.g. Grafana Cloud user ID)
+  # LOKI_PASSWORD: ""       # basic auth password / API key
+  # LOKI_BEARER_TOKEN: ""   # bearer token (e.g. auth proxy)
+  # LOKI_TENANT_ID: ""      # X-Scope-OrgID for multi-tenant Loki
 
 resources:
   requests:

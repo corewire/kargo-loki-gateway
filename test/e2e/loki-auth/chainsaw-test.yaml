@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: loki-auth
+spec:
+  description: |
+    Verify that LOKI_BASIC_AUTH is forwarded to Loki. An nginx proxy with
+    htpasswd sits in front of Loki on port 3200; requests without valid
+    credentials get a 401. A gateway Pod configured with LOKI_BASIC_AUTH
+    must still return logs successfully.
+  namespace: e2e-infra
+  steps:
+    - name: Deploy nginx basic-auth proxy
+      try:
+        - apply:
+            file: loki-auth-proxy.yaml
+        - assert:
+            timeout: 60s
+            resource:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: loki-auth-proxy
+                namespace: e2e-infra
+              status:
+                availableReplicas: 1
+
+    - name: Proxy rejects unauthenticated requests
+      try:
+        - script:
+            timeout: 20s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13200:3200 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13200/loki/api/v1/labels)
+              [ "$CODE" = "401" ] || { echo "FAIL: expected 401 without auth, got $CODE"; exit 1; }
+              echo "PASS: proxy returns 401 without credentials"
+
+    - name: Proxy accepts valid basic auth
+      try:
+        - script:
+            timeout: 20s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13201:3200 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              CODE=$(curl -so /dev/null -w '%{http_code}' -u e2e-user:e2e-pass http://localhost:13201/loki/api/v1/labels)
+              [ "$CODE" = "200" ] || { echo "FAIL: expected 200 with auth, got $CODE"; exit 1; }
+              echo "PASS: proxy accepts valid credentials"
+
+    - name: Gateway with LOKI_BASIC_AUTH retrieves logs via auth proxy
+      try:
+        - script:
+            timeout: 60s
+            content: |
+              set -e
+              # Patch the gateway to point at the auth proxy with credentials.
+              kubectl -n e2e-infra set env deployment/kargo-loki-gateway \
+                LOKI_URL=http://loki-auth-proxy.e2e-infra.svc.cluster.local:3200 \
+                LOKI_USERNAME=e2e-user \
+                LOKI_PASSWORD=e2e-pass
+              kubectl -n e2e-infra rollout status deployment/kargo-loki-gateway --timeout=60s
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18083:80 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              BODY=$(curl -sf 'http://localhost:18083/logs?namespace=e2e-infra&container=e2e-logs')
+              echo "$BODY" | grep -qv 'Failed to query Loki' || {
+                echo "FAIL: gateway returned an error — auth may not be forwarded"
+                echo "$BODY"
+                exit 1
+              }
+              echo "PASS: gateway successfully queried Loki through basic-auth proxy"
+
+    - name: Restore gateway to plain Loki
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              kubectl -n e2e-infra set env deployment/kargo-loki-gateway \
+                LOKI_URL=http://loki.e2e-infra.svc.cluster.local:3100 \
+                LOKI_USERNAME- \
+                LOKI_PASSWORD-
+              kubectl -n e2e-infra rollout status deployment/kargo-loki-gateway --timeout=30s
+
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: loki-auth-proxy
+        - delete:
+            ref:
+              apiVersion: v1
+              kind: Service
+              name: loki-auth-proxy
+        - delete:
+            ref:
+              apiVersion: v1
+              kind: ConfigMap
+              name: loki-auth-proxy-config

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -196,3 +197,102 @@ func TestHealthz(t *testing.T) {
 	}
 	_ = a
 }
+
+// lokiEmptyServer returns a server that echoes back request headers via a
+// channel and always responds with an empty Loki result.
+func lokiEmptyServer(t *testing.T, ch chan<- http.Header) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ch <- r.Header.Clone()
+		json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"result": []any{}}})
+	}))
+}
+
+func TestQueryLokiBasicAuth(t *testing.T) {
+	ch := make(chan http.Header, 1)
+	srv := lokiEmptyServer(t, ch)
+	defer srv.Close()
+	a := &app{
+		cfg:  config{lokiURL: srv.URL, limit: 5000, lokiUsername: "alice", lokiPassword: "s3cr3t"},
+		loki: &http.Client{},
+	}
+	_, _ = a.queryLoki(t.Context(), `{namespace="x"}`, 0, time.Now().UnixNano())
+	hdr := <-ch
+	got := hdr.Get("Authorization")
+	want := "Basic " + base64.StdEncoding.EncodeToString([]byte("alice:s3cr3t")) // net/http encodes user:pass
+	if got != want {
+		t.Errorf("Authorization header\n got  %q\n want %q", got, want)
+	}
+}
+
+func TestQueryLokiBearerToken(t *testing.T) {
+	ch := make(chan http.Header, 1)
+	srv := lokiEmptyServer(t, ch)
+	defer srv.Close()
+	a := &app{
+		cfg:  config{lokiURL: srv.URL, limit: 5000, lokiBearerToken: "mytoken"},
+		loki: &http.Client{},
+	}
+	_, _ = a.queryLoki(t.Context(), `{namespace="x"}`, 0, time.Now().UnixNano())
+	hdr := <-ch
+	if got := hdr.Get("Authorization"); got != "Bearer mytoken" {
+		t.Errorf("Authorization header: %q", got)
+	}
+}
+
+func TestQueryLokiTenantID(t *testing.T) {
+	ch := make(chan http.Header, 1)
+	srv := lokiEmptyServer(t, ch)
+	defer srv.Close()
+	a := &app{
+		cfg:  config{lokiURL: srv.URL, limit: 5000, lokiTenantID: "my-tenant"},
+		loki: &http.Client{},
+	}
+	_, _ = a.queryLoki(t.Context(), `{namespace="x"}`, 0, time.Now().UnixNano())
+	hdr := <-ch
+	if got := hdr.Get("X-Scope-OrgID"); got != "my-tenant" {
+		t.Errorf("X-Scope-OrgID header: %q", got)
+	}
+}
+
+func TestQueryLokiBearerAndTenant(t *testing.T) {
+	ch := make(chan http.Header, 1)
+	srv := lokiEmptyServer(t, ch)
+	defer srv.Close()
+	a := &app{
+		cfg:  config{lokiURL: srv.URL, limit: 5000, lokiBearerToken: "tok", lokiTenantID: "org1"},
+		loki: &http.Client{},
+	}
+	_, _ = a.queryLoki(t.Context(), `{namespace="x"}`, 0, time.Now().UnixNano())
+	hdr := <-ch
+	if got := hdr.Get("Authorization"); got != "Bearer tok" {
+		t.Errorf("Authorization: %q", got)
+	}
+	if got := hdr.Get("X-Scope-OrgID"); got != "org1" {
+		t.Errorf("X-Scope-OrgID: %q", got)
+	}
+}
+
+func TestQueryLokiBasicAuthTakesPrecedenceOverBearer(t *testing.T) {
+	// When both are set, basic auth wins (as documented).
+	ch := make(chan http.Header, 1)
+	srv := lokiEmptyServer(t, ch)
+	defer srv.Close()
+	a := &app{
+		cfg: config{
+			lokiURL:         srv.URL,
+			limit:           5000,
+			lokiUsername:    "user",
+			lokiPassword:    "pass",
+			lokiBearerToken: "should-be-ignored",
+		},
+		loki: &http.Client{},
+	}
+	_, _ = a.queryLoki(t.Context(), `{namespace="x"}`, 0, time.Now().UnixNano())
+	hdr := <-ch
+	got := hdr.Get("Authorization")
+	if !strings.HasPrefix(got, "Basic ") {
+		t.Errorf("expected Basic auth to take precedence, got: %q", got)
+	}
+}
+

@@ -46,11 +46,8 @@ func (a *app) queryLoki(ctx context.Context, logql string, start, end int64) (st
 	if err != nil {
 		return "", err
 	}
-	if a.cfg.lokiBasicAuth != "" {
-		parts := strings.SplitN(a.cfg.lokiBasicAuth, ":", 2)
-		if len(parts) == 2 {
-			req.SetBasicAuth(parts[0], parts[1])
-		}
+	if a.cfg.lokiUsername != "" {
+		req.SetBasicAuth(a.cfg.lokiUsername, a.cfg.lokiPassword)
 	} else if a.cfg.lokiBearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+a.cfg.lokiBearerToken)
 	}

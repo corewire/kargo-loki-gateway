@@ -16,8 +16,9 @@ type config struct {
 	lokiTimeout    time.Duration
 	k8sTimeout     time.Duration
 	k8sAPI         string
-	// Loki auth — at most one of basicAuth or bearerToken should be set.
-	lokiBasicAuth   string // "user:password"
+	// Loki auth — at most one of username/password or bearerToken should be set.
+	lokiUsername    string
+	lokiPassword    string
 	lokiBearerToken string
 	lokiTenantID    string
 }
@@ -59,7 +60,8 @@ func loadConfig() config {
 		lokiTimeout:     envDur("LOKI_TIMEOUT", 15*time.Second),
 		k8sTimeout:      envDur("K8S_TIMEOUT", 5*time.Second),
 		k8sAPI:          strings.TrimRight(k8sAPI, "/"),
-		lokiBasicAuth:   os.Getenv("LOKI_BASIC_AUTH"),
+		lokiUsername:    os.Getenv("LOKI_USERNAME"),
+		lokiPassword:    os.Getenv("LOKI_PASSWORD"),
 		lokiBearerToken: os.Getenv("LOKI_BEARER_TOKEN"),
 		lokiTenantID:    os.Getenv("LOKI_TENANT_ID"),
 	}
