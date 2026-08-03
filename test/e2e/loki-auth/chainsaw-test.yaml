@@ -5,20 +5,22 @@ metadata:
   name: loki-auth
 spec:
   description: |
-    Verify that LOKI_BASIC_AUTH is forwarded to Loki. An nginx proxy with
-    htpasswd sits in front of Loki on port 3200; requests without valid
-    credentials get a 401. A gateway Pod configured with LOKI_BASIC_AUTH
-    must still return logs successfully.
+    Verify that LOKI_USERNAME/LOKI_PASSWORD are forwarded to Loki.
+    Uses a dedicated gateway instance so the shared gateway is never mutated,
+    allowing this test to run safely in parallel with others.
   namespace: e2e-infra
   steps:
-    - name: Deploy nginx basic-auth proxy
+    - name: Deploy nginx basic-auth proxy and dedicated gateway
       try:
         - apply:
             file: loki-auth-proxy.yaml
+        - apply:
+            file: gateway-auth.yaml
         - script:
             timeout: 30s
             content: |
               kubectl -n e2e-infra wait --for=condition=available deployment/loki-auth-proxy --timeout=30s
+              kubectl -n e2e-infra wait --for=condition=available deployment/kargo-loki-gateway-auth --timeout=30s
 
     - name: Proxy rejects unauthenticated requests
       try:
@@ -48,19 +50,13 @@ spec:
               [ "$CODE" = "200" ] || { echo "FAIL: expected 200 with auth, got $CODE"; exit 1; }
               echo "PASS: proxy accepts valid credentials"
 
-    - name: Gateway with LOKI_BASIC_AUTH retrieves logs via auth proxy
+    - name: Dedicated gateway retrieves logs via auth proxy
       try:
         - script:
-            timeout: 60s
+            timeout: 20s
             content: |
               set -e
-              # Patch the gateway to point at the auth proxy with credentials.
-              kubectl -n e2e-infra set env deployment/kargo-loki-gateway \
-                LOKI_URL=http://loki-auth-proxy.e2e-infra.svc.cluster.local:3200 \
-                LOKI_USERNAME=e2e-user \
-                LOKI_PASSWORD=e2e-pass
-              kubectl -n e2e-infra rollout status deployment/kargo-loki-gateway --timeout=60s
-              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18083:80 &
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway-auth 18083:80 &
               PF=$!
               sleep 1
               trap "kill $PF 2>/dev/null" EXIT
@@ -72,19 +68,18 @@ spec:
               }
               echo "PASS: gateway successfully queried Loki through basic-auth proxy"
 
-    - name: Restore gateway to plain Loki
-      try:
-        - script:
-            timeout: 30s
-            content: |
-              kubectl -n e2e-infra set env deployment/kargo-loki-gateway \
-                LOKI_URL=http://loki.e2e-infra.svc.cluster.local:3100 \
-                LOKI_USERNAME- \
-                LOKI_PASSWORD-
-              kubectl -n e2e-infra rollout status deployment/kargo-loki-gateway --timeout=30s
-
     - name: Cleanup
       try:
+        - delete:
+            ref:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: kargo-loki-gateway-auth
+        - delete:
+            ref:
+              apiVersion: v1
+              kind: Service
+              name: kargo-loki-gateway-auth
         - delete:
             ref:
               apiVersion: apps/v1

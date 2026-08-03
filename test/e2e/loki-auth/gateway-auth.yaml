@@ -1,0 +1,59 @@
+---
+# Dedicated gateway instance for the loki-auth test — avoids mutating the
+# shared gateway and causing parallel tests to lose their port-forward connections.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kargo-loki-gateway-auth
+  namespace: e2e-infra
+  labels:
+    app.kubernetes.io/name: kargo-loki-gateway-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kargo-loki-gateway-auth
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kargo-loki-gateway-auth
+    spec:
+      serviceAccountName: kargo-loki-gateway
+      containers:
+        - name: gateway
+          image: kargo-loki-gateway:dev
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LOKI_URL
+              value: "http://loki-auth-proxy.e2e-infra.svc.cluster.local:3200"
+            - name: LOKI_USERNAME
+              value: "e2e-user"
+            - name: LOKI_PASSWORD
+              value: "e2e-pass"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kargo-loki-gateway-auth
+  namespace: e2e-infra
+spec:
+  selector:
+    app.kubernetes.io/name: kargo-loki-gateway-auth
+  ports:
+    - port: 80
+      targetPort: http
