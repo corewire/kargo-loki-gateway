@@ -68,19 +68,14 @@ e2e-infra:
 .PHONY: chainsaw
 chainsaw: $(CHAINSAW)
 $(CHAINSAW): $(LOCALBIN)
-	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
-
-define go-install-tool
-@[ -f "$(1)-$(3)" ] || { \
-set -e; \
-package=$(2)@$(3) ;\
-echo "Downloading $${package}" ;\
-rm -f $(1) || true ;\
-GOBIN=$(LOCALBIN) GOTOOLCHAIN=local go install $${package} ;\
-mv $(1) $(1)-$(3) ;\
-} ;\
-ln -sf $(1)-$(3) $(1)
-endef
+	@[ -f "$(CHAINSAW)" ] || { \
+	  set -e; \
+	  OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	  ARCH=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'); \
+	  URL="https://github.com/kyverno/chainsaw/releases/download/$(CHAINSAW_VERSION)/chainsaw_$${OS}_$${ARCH}.tar.gz"; \
+	  echo "Downloading chainsaw $(CHAINSAW_VERSION) from $${URL}"; \
+	  curl -sSfL "$$URL" | tar -xz -C $(LOCALBIN) chainsaw; \
+	}
 
 .PHONY: docs-gen
 docs-gen: ## Regenerate llms.txt, llms-full.txt, AGENTS.md, knowledge.yaml from source annotations.

@@ -17,7 +17,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/loki 13100:3100 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13100/loki/api/v1/labels)
               [ "$CODE" = "200" ] || { echo "FAIL: /labels returned $CODE"; exit 1; }
@@ -30,7 +30,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/loki 13101:3100 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               deadline=$(( $(date +%s) + 120 ))
               while [ "$(date +%s)" -lt "$deadline" ]; do

@@ -15,16 +15,10 @@ spec:
       try:
         - apply:
             file: loki-auth-proxy.yaml
-        - assert:
-            timeout: 60s
-            resource:
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: loki-auth-proxy
-                namespace: e2e-infra
-              status:
-                availableReplicas: 1
+        - script:
+            timeout: 30s
+            content: |
+              kubectl -n e2e-infra wait --for=condition=available deployment/loki-auth-proxy --timeout=30s
 
     - name: Proxy rejects unauthenticated requests
       try:
@@ -34,7 +28,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13200:3200 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13200/loki/api/v1/labels)
               [ "$CODE" = "401" ] || { echo "FAIL: expected 401 without auth, got $CODE"; exit 1; }
@@ -48,7 +42,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13201:3200 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' -u e2e-user:e2e-pass http://localhost:13201/loki/api/v1/labels)
               [ "$CODE" = "200" ] || { echo "FAIL: expected 200 with auth, got $CODE"; exit 1; }
@@ -68,7 +62,7 @@ spec:
               kubectl -n e2e-infra rollout status deployment/kargo-loki-gateway --timeout=60s
               kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18083:80 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               BODY=$(curl -sf 'http://localhost:18083/logs?namespace=e2e-infra&container=e2e-logs')
               echo "$BODY" | grep -qv 'Failed to query Loki' || {

@@ -40,7 +40,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/loki 13102:3100 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               deadline=$(( $(date +%s) + 60 ))
               while [ "$(date +%s)" -lt "$deadline" ]; do
@@ -67,7 +67,7 @@ spec:
               set -e
               kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18082:80 &
               PF=$!
-              sleep 2
+              sleep 1
               trap "kill $PF 2>/dev/null" EXIT
               BODY=$(curl -sf 'http://localhost:18082/logs?namespace=e2e-infra&container=e2e-logs&analysisRun=e2e-log-run')
               echo "Gateway response:"

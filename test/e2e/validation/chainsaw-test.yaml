@@ -15,7 +15,7 @@ spec:
             content: |
               kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18081:80 &
               echo $! > /tmp/gw-pf.pid
-              sleep 2
+              sleep 1
     - name: missing namespace returns 400
       try:
         - script:
