@@ -47,6 +47,16 @@ jobs:
           cache-to: type=gha,scope=gateway-image,mode=max,ignore-error=true
           provenance: false
 
+  docs-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: src/go.mod
+      - name: Check generated docs are up to date
+        run: make docs-diff
+
   helm-lint:
     runs-on: ubuntu-latest
     steps:
