@@ -1,0 +1,83 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kargo-loki-gateway
+  namespace: e2e-infra
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kargo-loki-gateway-e2e
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [analysisruns]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kargo-loki-gateway-e2e
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kargo-loki-gateway-e2e
+subjects:
+  - kind: ServiceAccount
+    name: kargo-loki-gateway
+    namespace: e2e-infra
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kargo-loki-gateway
+  namespace: e2e-infra
+  labels:
+    app.kubernetes.io/name: kargo-loki-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kargo-loki-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kargo-loki-gateway
+    spec:
+      serviceAccountName: kargo-loki-gateway
+      containers:
+        - name: gateway
+          image: kargo-loki-gateway:dev
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LOKI_URL
+              value: "http://loki.e2e-infra.svc.cluster.local:3100"
+            - name: FALLBACK_WINDOW
+              value: "2h"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kargo-loki-gateway
+  namespace: e2e-infra
+spec:
+  selector:
+    app.kubernetes.io/name: kargo-loki-gateway
+  ports:
+    - port: 80
+      targetPort: http

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: gateway-healthz
+spec:
+  description: |
+    Verify the gateway /healthz endpoint returns "ok".
+  namespace: e2e-infra
+  steps:
+    - name: healthz returns ok
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18080:80 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              BODY=$(curl -sf http://localhost:18080/healthz)
+              echo "Response: $BODY"
+              [ "$BODY" = "ok" ] || { echo "FAIL: expected 'ok', got '$BODY'"; exit 1; }
+              echo "PASS"

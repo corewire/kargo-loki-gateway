@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kargo-loki-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: kargo-loki-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: kargo-loki-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

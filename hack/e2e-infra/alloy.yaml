@@ -1,0 +1,134 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  namespace: e2e-infra
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy-e2e
+rules:
+  - apiGroups: [""]
+    resources: [pods, nodes, namespaces]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy-e2e
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy-e2e
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: e2e-infra
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: e2e-infra
+data:
+  config.alloy: |
+    // Discover pods in the e2e-infra namespace.
+    discovery.kubernetes "pods" {
+      role = "pod"
+      namespaces {
+        names = ["e2e-infra"]
+      }
+    }
+
+    // Relabel: keep namespace + container as stream labels; stage pod separately.
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      // pod_name is a regular label so stages can reference it.
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod_name"
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [loki.process.pod_metadata.receiver]
+    }
+
+    // Move pod_name label → structured metadata "pod" to match production
+    // Alloy (k8s-monitoring) behavior where pod is NOT a stream label.
+    loki.process "pod_metadata" {
+      forward_to = [loki.write.local.receiver]
+
+      stage.structured_metadata {
+        values = {
+          pod = "pod_name",
+        }
+      }
+      stage.label_drop {
+        values = ["pod_name"]
+      }
+    }
+
+    loki.write "local" {
+      endpoint {
+        url = "http://loki.e2e-infra.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alloy
+  namespace: e2e-infra
+  labels:
+    app: alloy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.7.5
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/var/lib/alloy/data
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: data
+              mountPath: /var/lib/alloy/data
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: data
+          emptyDir: {}

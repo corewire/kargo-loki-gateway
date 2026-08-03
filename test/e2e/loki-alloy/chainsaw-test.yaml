@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: loki-alloy
+spec:
+  description: |
+    Verify Loki is reachable and Alloy has ingested logs from the e2e-infra
+    namespace (namespace label present in Loki's index).
+  namespace: e2e-infra
+  steps:
+    - name: Loki labels endpoint returns 200
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/loki 13100:3100 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13100/loki/api/v1/labels)
+              [ "$CODE" = "200" ] || { echo "FAIL: /labels returned $CODE"; exit 1; }
+              echo "PASS: Loki /labels → $CODE"
+    - name: Alloy has shipped logs into Loki
+      try:
+        - script:
+            timeout: 120s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/loki 13101:3100 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              deadline=$(( $(date +%s) + 120 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                NAMESPACES=$(curl -sf http://localhost:13101/loki/api/v1/label/namespace/values \
+                  | grep -o '"e2e-infra"' || true)
+                if [ -n "$NAMESPACES" ]; then
+                  echo "PASS: Alloy has shipped logs for namespace e2e-infra"
+                  exit 0
+                fi
+                echo "  waiting for Alloy to ingest e2e-infra logs..."
+                sleep 5
+              done
+              echo "FAIL: e2e-infra never appeared as a Loki namespace label"
+              exit 1

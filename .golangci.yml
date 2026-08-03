@@ -1,0 +1,19 @@
+version: "2"
+
+run:
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  settings: {}
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters: [errcheck]

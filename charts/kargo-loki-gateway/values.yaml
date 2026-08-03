@@ -1,0 +1,29 @@
+image:
+  repository: ghcr.io/corewire/kargo-loki-gateway
+  tag: ""  # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+env:
+  LOKI_URL: "http://loki-gateway.loki.svc.cluster.local"
+  LISTEN_ADDR: ":8080"
+  LOG_WINDOW: "30m"
+  FALLBACK_WINDOW: "24h"
+  LIMIT: "5000"
+  LOKI_TIMEOUT: "15s"
+  K8S_TIMEOUT: "5s"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 24Mi
+  limits:
+    memory: 64Mi
+
+serviceAccount:
+  name: kargo-loki-gateway
+
+rbac:
+  # Create ClusterRole + ClusterRoleBinding for analysisruns/get
+  create: true

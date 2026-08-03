@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: e2e-log-gen
+  namespace: e2e-infra
+spec:
+  metrics:
+    - name: e2e-logs
+      count: 1
+      failureLimit: 0
+      provider:
+        job:
+          spec:
+            backoffLimit: 0
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: e2e-logs
+                    image: busybox:1.36
+                    command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        echo "e2e-marker: line-1 gateway log retrieval test"
+                        echo "e2e-marker: line-2 timestamp=$(date -Iseconds)"
+                        echo "e2e-marker: line-3 done"

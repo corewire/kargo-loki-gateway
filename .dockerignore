@@ -1,0 +1,14 @@
+# Only the src/ directory is needed for the build context.
+bin/
+charts/
+e2e/
+ai-docs/
+.github/
+*.md
+.git/
+.gitignore
+.golangci.yml
+.editorconfig
+.pre-commit-config.yaml
+Makefile
+renovate.json

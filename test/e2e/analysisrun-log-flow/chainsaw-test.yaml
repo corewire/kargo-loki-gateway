@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: analysisrun-log-flow
+spec:
+  description: |
+    Full end-to-end flow: create an AnalysisRun whose Job generates log lines,
+    Alloy collects them into Loki, and the gateway retrieves them via the
+    AnalysisRun time-window lookup.
+  namespace: e2e-infra
+  steps:
+    - name: Create AnalysisRun
+      try:
+        - apply:
+            file: 02-analysisrun.yaml
+    - name: Wait for AnalysisRun Job to complete
+      try:
+        - script:
+            timeout: 120s
+            content: |
+              deadline=$(( $(date +%s) + 120 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                PHASE=$(kubectl -n e2e-infra get analysisrun e2e-log-run \
+                  -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                echo "  AnalysisRun phase: ${PHASE:-pending}"
+                case "$PHASE" in
+                  Successful|Failed|Error) echo "Job done: $PHASE"; exit 0 ;;
+                esac
+                sleep 5
+              done
+              kubectl -n e2e-infra get analysisrun e2e-log-run -o yaml
+              echo "FAIL: AnalysisRun did not complete in time"
+              exit 1
+    - name: Wait for Alloy to ingest the Job logs
+      try:
+        - script:
+            timeout: 60s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/loki 13102:3100 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              deadline=$(( $(date +%s) + 60 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                NOW=$(date +%s%N)
+                START=$(( NOW - 3600000000000 ))
+                LINES=$(curl -sfG http://localhost:13102/loki/api/v1/query_range \
+                  --data-urlencode 'query={namespace="e2e-infra",container="e2e-logs"}' \
+                  --data-urlencode "start=$START" --data-urlencode "end=$NOW" \
+                  --data-urlencode 'limit=5' | grep -o 'e2e-marker' | wc -l || echo 0)
+                if [ "$LINES" -gt 0 ]; then
+                  echo "PASS: found $LINES e2e-marker entries in Loki"
+                  exit 0
+                fi
+                echo "  waiting for log ingestion..."
+                sleep 5
+              done
+              echo "FAIL: e2e-marker lines never appeared in Loki"
+              exit 1
+    - name: Gateway retrieves logs via AnalysisRun time-window
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              set -e
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18082:80 &
+              PF=$!
+              sleep 2
+              trap "kill $PF 2>/dev/null" EXIT
+              BODY=$(curl -sf 'http://localhost:18082/logs?namespace=e2e-infra&container=e2e-logs&analysisRun=e2e-log-run')
+              echo "Gateway response:"
+              echo "$BODY"
+              echo "$BODY" | grep -q 'e2e-marker' || {
+                echo "FAIL: expected 'e2e-marker' in gateway response"
+                exit 1
+              }
+              echo "PASS: gateway returned AnalysisRun logs"
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: argoproj.io/v1alpha1
+              kind: AnalysisRun
+              name: e2e-log-run
