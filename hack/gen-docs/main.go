@@ -384,6 +384,8 @@ conventions:
 {{- end}}
 `))
 
+var readmeTmpl *template.Template // loaded from README.md.tpl at startup
+
 // shared sub-template used by multiple templates
 var configTableTmpl = `{{define "configTable"}}
 | Env | Default | Meaning |
@@ -396,6 +398,30 @@ var configTableTmpl = `{{define "configTable"}}
 func init() {
 	for _, t := range []*template.Template{llmsTxtTmpl, llmsFullTxtTmpl, agentsMdTmpl} {
 		template.Must(t.Parse(configTableTmpl))
+	}
+	// Load README.md.tpl from the same directory as main.go.
+	tplPath := filepath.Join(filepath.Dir(mustAbs("hack/gen-docs/README.md.tpl")), "README.md.tpl")
+	src, err := os.ReadFile(tplPath)
+	if err != nil {
+		fatalf("read README.md.tpl: %v", err)
+	}
+	readmeTmpl = template.Must(template.New("readme").Parse(string(src)))
+	template.Must(readmeTmpl.Parse(configTableTmpl))
+}
+
+// mustAbs resolves a repo-relative path to an absolute path by walking up to the repo root.
+func mustAbs(rel string) string {
+	dir, _ := os.Getwd()
+	for {
+		candidate := filepath.Join(dir, rel)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			fatalf("cannot find %s from %s", rel, dir)
+		}
+		dir = parent
 	}
 }
 
@@ -423,6 +449,7 @@ type output struct {
 
 func outputs() []output {
 	return []output{
+		{"README.md", readmeTmpl},
 		{"llms.txt", llmsTxtTmpl},
 		{"llms-full.txt", llmsFullTxtTmpl},
 		{"AGENTS.md", agentsMdTmpl},

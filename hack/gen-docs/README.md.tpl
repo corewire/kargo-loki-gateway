@@ -34,22 +34,7 @@ Kargo UI  ──GET /logs?namespace=…&pod=…&analysisRun=…──▶  gatewa
    LogQL and time range so the operator can paste it into Grafana Explore.
 
 ## Configuration
-
-| Env | Default | Meaning |
-|---|---|---|
-| `LOKI_URL` | `http://loki-gateway.loki.svc.cluster.local` | Loki base URL |
-| `LISTEN_ADDR` | `:8080` | Listen address |
-| `LOG_WINDOW` | `30m` | Window after AnalysisRun.startedAt |
-| `FALLBACK_WINDOW` | `24h` | Window when AnalysisRun is missing or GC'd |
-| `LIMIT` | `5000` | Loki result line limit |
-| `LOKI_TIMEOUT` | `15s` | Per-request Loki timeout |
-| `K8S_TIMEOUT` | `5s` | k8s API lookup timeout (separate from Loki) |
-| `K8S_API` | `https://kubernetes.default.svc` | k8s API server (in-cluster default) |
-| `LOKI_USERNAME` | — | Basic auth username (e.g. Grafana Cloud user ID) |
-| `LOKI_PASSWORD` | — | Basic auth password / API key |
-| `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
-| `LOKI_TENANT_ID` | — | X-Scope-OrgID header for multi-tenant Loki |
-
+{{template "configTable" .ConfigFields}}
 ## Development
 
 ```bash
