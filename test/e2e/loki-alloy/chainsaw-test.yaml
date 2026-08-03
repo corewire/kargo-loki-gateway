@@ -15,10 +15,10 @@ spec:
             timeout: 30s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/loki 13100:3100 &
+              kubectl -n e2e-infra port-forward svc/loki 13100:3100 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13100/loki/api/v1/labels)
               [ "$CODE" = "200" ] || { echo "FAIL: /labels returned $CODE"; exit 1; }
               echo "PASS: Loki /labels → $CODE"
@@ -28,10 +28,10 @@ spec:
             timeout: 120s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/loki 13101:3100 &
+              kubectl -n e2e-infra port-forward svc/loki 13101:3100 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               deadline=$(( $(date +%s) + 120 ))
               while [ "$(date +%s)" -lt "$deadline" ]; do
                 NAMESPACES=$(curl -sf http://localhost:13101/loki/api/v1/label/namespace/values \

@@ -28,10 +28,10 @@ spec:
             timeout: 20s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13200:3200 &
+              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13200:3200 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13200/loki/api/v1/labels)
               [ "$CODE" = "401" ] || { echo "FAIL: expected 401 without auth, got $CODE"; exit 1; }
               echo "PASS: proxy returns 401 without credentials"
@@ -42,10 +42,10 @@ spec:
             timeout: 20s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13201:3200 &
+              kubectl -n e2e-infra port-forward svc/loki-auth-proxy 13201:3200 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               CODE=$(curl -so /dev/null -w '%{http_code}' -u e2e-user:e2e-pass http://localhost:13201/loki/api/v1/labels)
               [ "$CODE" = "200" ] || { echo "FAIL: expected 200 with auth, got $CODE"; exit 1; }
               echo "PASS: proxy accepts valid credentials"
@@ -56,10 +56,10 @@ spec:
             timeout: 20s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway-auth 18083:80 &
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway-auth 18083:80 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               BODY=$(curl -sf 'http://localhost:18083/logs?namespace=e2e-infra&container=e2e-logs')
               echo "$BODY" | grep -qv 'Failed to query Loki' || {
                 echo "FAIL: gateway returned an error — auth may not be forwarded"

@@ -8,33 +8,21 @@ spec:
     Verify that the gateway rejects invalid and missing parameters with 400.
   namespace: e2e-infra
   steps:
-    - name: start port-forward
+    - name: Validation returns 400 for bad input
       try:
         - script:
-            timeout: 10s
+            timeout: 30s
             content: |
-              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18081:80 &
-              echo $! > /tmp/gw-pf.pid
+              set -e
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18081:80 >/dev/null 2>&1 &
+              PF=$!
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               sleep 1
-    - name: missing namespace returns 400
-      try:
-        - script:
-            timeout: 10s
-            content: |
+
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:18081/logs)
-              [ "$CODE" = "400" ] || { echo "FAIL: expected 400, got $CODE"; exit 1; }
+              [ "$CODE" = "400" ] || { echo "FAIL: missing namespace expected 400, got $CODE"; exit 1; }
               echo "PASS: missing namespace → $CODE"
-    - name: injection attempt returns 400
-      try:
-        - script:
-            timeout: 10s
-            content: |
+
               CODE=$(curl -so /dev/null -w '%{http_code}' 'http://localhost:18081/logs?namespace=demo%22%7D')
-              [ "$CODE" = "400" ] || { echo "FAIL: expected 400, got $CODE"; exit 1; }
+              [ "$CODE" = "400" ] || { echo "FAIL: injection expected 400, got $CODE"; exit 1; }
               echo "PASS: injection attempt → $CODE"
-    - name: stop port-forward
-      try:
-        - script:
-            timeout: 5s
-            content: |
-              kill "$(cat /tmp/gw-pf.pid)" 2>/dev/null || true

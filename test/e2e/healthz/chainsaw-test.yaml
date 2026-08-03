@@ -14,10 +14,10 @@ spec:
             timeout: 30s
             content: |
               set -e
-              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18080:80 &
+              kubectl -n e2e-infra port-forward svc/kargo-loki-gateway 18080:80 >/dev/null 2>&1 &
               PF=$!
               sleep 1
-              trap "kill $PF 2>/dev/null" EXIT
+              trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               BODY=$(curl -sf http://localhost:18080/healthz)
               echo "Response: $BODY"
               [ "$BODY" = "ok" ] || { echo "FAIL: expected 'ok', got '$BODY'"; exit 1; }
