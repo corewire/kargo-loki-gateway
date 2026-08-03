@@ -8,19 +8,31 @@ import (
 )
 
 type config struct {
-	lokiURL        string
-	listen         string
-	logWindow      time.Duration
+	//+docs:config env="LOKI_URL" default="http://loki-gateway.loki.svc.cluster.local" meaning="Loki base URL"
+	lokiURL string
+	//+docs:config env="LISTEN_ADDR" default=":8080" meaning="Listen address"
+	listen string
+	//+docs:config env="LOG_WINDOW" default="30m" meaning="Window after AnalysisRun.startedAt"
+	logWindow time.Duration
+	//+docs:config env="FALLBACK_WINDOW" default="24h" meaning="Window when AnalysisRun is missing or GC'd"
 	fallbackWindow time.Duration
-	limit          int
-	lokiTimeout    time.Duration
-	k8sTimeout     time.Duration
-	k8sAPI         string
+	//+docs:config env="LIMIT" default="5000" meaning="Loki result line limit"
+	limit int
+	//+docs:config env="LOKI_TIMEOUT" default="15s" meaning="Per-request Loki timeout"
+	lokiTimeout time.Duration
+	//+docs:config env="K8S_TIMEOUT" default="5s" meaning="k8s API lookup timeout (separate from Loki)"
+	k8sTimeout time.Duration
+	//+docs:config env="K8S_API" default="https://kubernetes.default.svc" meaning="k8s API server (in-cluster default)"
+	k8sAPI string
 	// Loki auth — at most one of username/password or bearerToken should be set.
-	lokiUsername    string
-	lokiPassword    string
+	//+docs:config env="LOKI_USERNAME" default="" meaning="Basic auth username (e.g. Grafana Cloud user ID)"
+	lokiUsername string
+	//+docs:config env="LOKI_PASSWORD" default="" meaning="Basic auth password / API key"
+	lokiPassword string
+	//+docs:config env="LOKI_BEARER_TOKEN" default="" meaning="Bearer token (e.g. Loki behind an auth proxy)"
 	lokiBearerToken string
-	lokiTenantID    string
+	//+docs:config env="LOKI_TENANT_ID" default="" meaning="X-Scope-OrgID header for multi-tenant Loki"
+	lokiTenantID string
 }
 
 func envDur(k string, def time.Duration) time.Duration {

@@ -82,6 +82,14 @@ mv $(1) $(1)-$(3) ;\
 ln -sf $(1)-$(3) $(1)
 endef
 
+.PHONY: docs-gen
+docs-gen: ## Regenerate llms.txt, llms-full.txt, AGENTS.md, knowledge.yaml from source annotations.
+	cd hack/gen-docs && go run .
+
+.PHONY: docs-diff
+docs-diff: ## Show what docs-gen would change without writing files (exits 1 if stale).
+	cd hack/gen-docs && go run . --diff
+
 .PHONY: devenv
 devenv: ## Start local dev environment via Tilt (creates kind cluster if needed).
 	kind get clusters | grep -q $(KIND_CLUSTER) || kind create cluster --name $(KIND_CLUSTER) --config hack/kind-config.yaml --wait 5m
