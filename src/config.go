@@ -16,6 +16,10 @@ type config struct {
 	lokiTimeout    time.Duration
 	k8sTimeout     time.Duration
 	k8sAPI         string
+	// Loki auth — at most one of basicAuth or bearerToken should be set.
+	lokiBasicAuth   string // "user:password"
+	lokiBearerToken string
+	lokiTenantID    string
 }
 
 func envDur(k string, def time.Duration) time.Duration {
@@ -47,13 +51,16 @@ func loadConfig() config {
 		k8sAPI = "https://kubernetes.default.svc"
 	}
 	return config{
-		lokiURL:        strings.TrimRight(lokiURL, "/"),
-		listen:         listen,
-		logWindow:      envDur("LOG_WINDOW", 30*time.Minute),
-		fallbackWindow: envDur("FALLBACK_WINDOW", 24*time.Hour),
-		limit:          limit,
-		lokiTimeout:    envDur("LOKI_TIMEOUT", 15*time.Second),
-		k8sTimeout:     envDur("K8S_TIMEOUT", 5*time.Second),
-		k8sAPI:         strings.TrimRight(k8sAPI, "/"),
+		lokiURL:         strings.TrimRight(lokiURL, "/"),
+		listen:          listen,
+		logWindow:       envDur("LOG_WINDOW", 30*time.Minute),
+		fallbackWindow:  envDur("FALLBACK_WINDOW", 24*time.Hour),
+		limit:           limit,
+		lokiTimeout:     envDur("LOKI_TIMEOUT", 15*time.Second),
+		k8sTimeout:      envDur("K8S_TIMEOUT", 5*time.Second),
+		k8sAPI:          strings.TrimRight(k8sAPI, "/"),
+		lokiBasicAuth:   os.Getenv("LOKI_BASIC_AUTH"),
+		lokiBearerToken: os.Getenv("LOKI_BEARER_TOKEN"),
+		lokiTenantID:    os.Getenv("LOKI_TENANT_ID"),
 	}
 }

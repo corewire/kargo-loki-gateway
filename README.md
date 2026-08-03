@@ -44,6 +44,9 @@ Kargo UI  ──GET /logs?namespace=…&pod=…&analysisRun=…──▶  gatewa
 | `LIMIT` | `5000` | Loki result line limit |
 | `LOKI_TIMEOUT` | `15s` | Per-request Loki timeout |
 | `K8S_TIMEOUT` | `5s` | k8s API lookup timeout |
+| `LOKI_BASIC_AUTH` | — | `user:password` for basic auth (e.g. Grafana Cloud) |
+| `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
+| `LOKI_TENANT_ID` | — | `X-Scope-OrgID` header for multi-tenant Loki |
 
 ## Development
 
