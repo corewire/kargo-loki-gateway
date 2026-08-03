@@ -1,0 +1,166 @@
+# kargo-loki-gateway — Full Reference for AI Agents
+
+## Project
+
+- **Name**: kargo-loki-gateway
+- **Language**: Go 1.26
+- **Module**: github.com/corewire/kargo-loki-gateway
+- **Dependencies**: stdlib only (no external Go modules)
+- **Image**: `ghcr.io/corewire/kargo-loki-gateway`
+- **Helm chart**: `oci://ghcr.io/corewire/charts/kargo-loki-gateway`
+- **Deployed namespace**: `kargo`
+
+## Architecture
+
+```
+Kargo UI  ──GET /logs?namespace&pod&container&analysisRun──▶  gateway  ──GET query_range──▶  Loki
+                                                                  │
+                                                         k8s API (AnalysisRun.status.startedAt)
+```
+
+The gateway is a single stateless binary. It holds no state and needs no leader election.
+
+## Source files
+
+### src/config.go
+Loads all configuration from environment variables.
+
+```go
+type config struct {
+    lokiURL        string        // LOKI_URL
+    listen         string        // LISTEN_ADDR
+    logWindow      time.Duration // LOG_WINDOW
+    fallbackWindow time.Duration // FALLBACK_WINDOW
+    limit          int           // LIMIT
+    lokiTimeout    time.Duration // LOKI_TIMEOUT
+    k8sTimeout     time.Duration // K8S_TIMEOUT
+    k8sAPI         string        // K8S_API
+    lokiUsername   string        // LOKI_USERNAME
+    lokiPassword   string        // LOKI_PASSWORD
+    lokiBearerToken string       // LOKI_BEARER_TOKEN
+    lokiTenantID   string        // LOKI_TENANT_ID
+}
+```
+
+### src/k8s.go
+Reads `/var/run/secrets/kubernetes.io/serviceaccount/token` fresh on every call (tokens rotate ~hourly). Queries `apis/argoproj.io/v1alpha1/namespaces/{ns}/analysisruns/{name}` with a separate `K8S_TIMEOUT` context. Returns zero time on any failure (missing, 404, decode error) so the fallback window is used.
+
+Constants: `tokenFile`, `caFile` (SA token and cluster CA paths).
+
+### src/loki.go
+Key functions:
+- `lokiWindow(ctx, ns, analysisRun)` — looks up AnalysisRun startedAt, returns `(start, end int64)` in nanoseconds
+- `queryLoki(ctx, logql, start, end)` — GETs `/loki/api/v1/query_range`, decodes JSON, stable-sorts entries by ts int64, returns newline-joined lines
+- Auth headers applied in order: `LOKI_USERNAME`+`LOKI_PASSWORD` (basic) > `LOKI_BEARER_TOKEN` (bearer); `LOKI_TENANT_ID` (X-Scope-OrgID) is independent and combinable
+
+### src/handler.go
+- `nameRe = ^[A-Za-z0-9_.-]+$` — all query params validated before use
+- `buildQuery(ns, pod, container)` — pod is a post-selector filter, NOT a stream label:
+  - `{namespace="ns",container="c"} | pod=~"pod.*"`
+  - Without pod: `{namespace="ns"}`
+- `handleLogs` — validates params, calls lokiWindow + queryLoki, writes user-friendly body on error/empty
+
+### src/main.go
+Wires TLS-aware k8s client (reads cluster CA), creates `app`, registers `GET /healthz` and `GET /logs`, sets `ReadHeaderTimeout: 5s`.
+
+## RBAC
+
+```yaml
+ClusterRole: get on argoproj.io/analysisruns
+ServiceAccount: kargo-loki-gateway (namespace: kargo)
+```
+
+## Helm chart
+
+Chart: `charts/kargo-loki-gateway/`
+
+Key values:
+```yaml
+image:
+  repository: ghcr.io/corewire/kargo-loki-gateway
+  tag: ""          # defaults to .Chart.AppVersion
+env:
+  LOKI_URL: "http://loki-gateway.loki.svc.cluster.local"
+  # LOKI_USERNAME / LOKI_PASSWORD for basic auth
+  # LOKI_BEARER_TOKEN for bearer
+  # LOKI_TENANT_ID for X-Scope-OrgID
+rbac:
+  create: true     # creates ClusterRole + ClusterRoleBinding
+```
+
+## Kargo urlTemplate
+
+```yaml
+urlTemplate: >-
+  http://kargo-loki-gateway.kargo.svc.cluster.local/logs?namespace=${{ jobNamespace }}&pod=${{ jobName }}&container=${{ container }}&analysisRun=${{ analysisRun }}
+```
+
+`jobName` is the k8s Job name (e.g. `91c3c8eb.smoke-test.1`). The pod name is `<jobName>-<hash>`, matched by `| pod=~"<jobName>.*"`.
+
+## Unit tests (src/main_test.go)
+
+| Test | What it verifies |
+|---|---|
+| TestBuildQuery | LogQL shape for ns/pod/container combos |
+| TestNameValidation | nameRe accepts k8s names, rejects injection attempts |
+| TestQueryLokiSorted | Out-of-order streams are merged and sorted by ts |
+| TestQueryLokiEmpty | Empty result returns `""` |
+| TestQueryLokiUpstreamError | Loki 500 returns error |
+| TestAnalysisRunStartedAt | Parses startedAt from mock k8s API |
+| TestAnalysisRunStartedAtMissing | 404 returns zero time |
+| TestHandleLogsNoNamespace | Missing namespace → 400 |
+| TestHandleLogsInvalidParam | Injection attempt → 400 |
+| TestHandleLogsLokiDown | Loki 503 → 502 with user-friendly body |
+| TestHandleLogsEmptyResult | Empty Loki result → 200 with Grafana hint |
+| TestHealthz | `/healthz` returns `ok\n` |
+| TestQueryLokiBasicAuth | `Authorization: Basic ...` header sent |
+| TestQueryLokiBearerToken | `Authorization: Bearer ...` header sent |
+| TestQueryLokiTenantID | `X-Scope-OrgID` header sent |
+| TestQueryLokiBearerAndTenant | Both headers sent when both configured |
+| TestQueryLokiBasicAuthTakesPrecedenceOverBearer | Basic auth wins if both set |
+
+## E2E tests (test/e2e/, Chainsaw v0.2.15)
+
+| Suite | What it tests |
+|---|---|
+| `healthz/` | `GET /healthz` returns `ok` |
+| `validation/` | 400 on missing namespace, 400 on injection attempt |
+| `loki-alloy/` | Loki reachable; Alloy has shipped `e2e-infra` logs |
+| `analysisrun-log-flow/` | AnalysisRun Job → Alloy → Loki → gateway returns `e2e-marker` lines |
+| `loki-auth/` | nginx basic-auth proxy; gateway with LOKI_USERNAME/LOKI_PASSWORD retrieves logs |
+
+## E2E infra (hack/e2e-infra/)
+
+| File | Purpose |
+|---|---|
+| `setup.sh` | Creates namespace, installs Argo Rollouts, deploys Loki/Alloy/gateway |
+| `loki.yaml` | Loki 3.1.1, single-binary, `allow_structured_metadata: true` |
+| `alloy.yaml` | Alloy v1.7.5, `loki.source.kubernetes` + `stage.structured_metadata {pod}` |
+| `gateway.yaml` | Gateway deployment with `imagePullPolicy: Never` (kind) |
+
+Alloy config moves pod name from label to structured metadata to replicate production:
+```alloy
+stage.structured_metadata { values = { pod = "pod_name" } }
+stage.label_drop { values = ["pod_name"] }
+```
+
+## Build commands
+
+```bash
+make test       # go test ./... in src/
+make build      # go build -o bin/gateway
+make lint       # golangci-lint in src/
+make helm-lint  # helm lint + helm template
+make e2e        # chainsaw test test/e2e/
+make e2e-infra  # deploy kind infra (runs setup.sh)
+make kind-create / kind-delete / kind-load
+make devenv     # ensure kind cluster + tilt up
+```
+
+## Known limitations
+
+| # | Issue | Severity |
+|---|---|---|
+| 1 | `limit=5000` silently truncates very chatty runs | low |
+| 2 | No graceful shutdown | negligible |
+| 3 | k8s lookup runs inside the same `lokiTimeout` context | low (mitigated by separate K8S_TIMEOUT) |

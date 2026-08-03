@@ -1,0 +1,60 @@
+# kargo-loki-gateway
+
+> HTTP gateway that bridges Kargo's log viewer and Loki | Go 1.26 | stdlib only | Deployed to the `kargo` namespace
+
+## Why it exists
+
+Kargo streams `GET urlTemplate` verbatim — it never parses JSON. Loki only returns JSON. A gateway flattens `query_range` into plain-text log lines.
+
+Second problem: Grafana Alloy (k8s-monitoring) stores the pod name as **structured metadata**, not a stream label. `{pod=~"..."}` inside `{}` matches nothing → must use `| pod=~"..."` after the selector.
+
+## HTTP contract
+
+| Method / path | Params | Success | Errors |
+|---|---|---|---|
+| `GET /logs` | `namespace` (required), `pod`, `container`, `analysisRun` | `200 text/plain` | `400` invalid param; `502` Loki error |
+| `GET /healthz` | — | `200 text/plain "ok"` | — |
+
+Param validation: `^[A-Za-z0-9_.-]+$`
+
+## Key behaviour
+
+1. Looks up `AnalysisRun.status.startedAt` via k8s API → window `[startedAt−1m, startedAt+30m]`
+2. Falls back to `[now−fallbackWindow, now]` if run is missing/GC'd
+3. Queries Loki `query_range` with `| pod=~"<pod>.*"` (structured metadata filter)
+4. Stable-sorts entries by nanosecond timestamp; returns newline-joined plain text
+5. On error or empty result: 200/502 with human-readable body including LogQL + time range for Grafana Explore
+
+## Source layout
+
+| File | Role |
+|---|---|
+| `src/config.go` | Env-var loading, `config` struct |
+| `src/k8s.go` | AnalysisRun lookup, SA token handling |
+| `src/loki.go` | `queryLoki`, `lokiWindow`, auth headers |
+| `src/handler.go` | `handleLogs`, `buildQuery`, `nameRe` |
+| `src/main.go` | `app` struct, server wiring |
+| `src/main_test.go` | 17 unit tests |
+| `charts/kargo-loki-gateway/` | Helm chart |
+| `hack/e2e-infra/` | kind-based e2e infra (Loki, Alloy, Argo Rollouts, gateway) |
+| `test/e2e/` | Chainsaw test suites |
+
+## Configuration
+
+| Env | Default | Meaning |
+|---|---|---|
+| `LOKI_URL` | `http://loki-gateway.loki.svc.cluster.local` | Loki base URL |
+| `LISTEN_ADDR` | `:8080` | Listen address |
+| `LOG_WINDOW` | `30m` | Window after `AnalysisRun.startedAt` |
+| `FALLBACK_WINDOW` | `24h` | Window when AnalysisRun is missing |
+| `LIMIT` | `5000` | Loki result line limit |
+| `LOKI_TIMEOUT` | `15s` | Per-request Loki timeout |
+| `K8S_TIMEOUT` | `5s` | k8s API lookup timeout |
+| `LOKI_USERNAME` | — | Basic auth username (e.g. Grafana Cloud) |
+| `LOKI_PASSWORD` | — | Basic auth password / API key |
+| `LOKI_BEARER_TOKEN` | — | Bearer token (auth proxy) |
+| `LOKI_TENANT_ID` | — | `X-Scope-OrgID` for multi-tenant Loki |
+
+## Full reference
+
+See [llms-full.txt](llms-full.txt) for complete source listings, test descriptions, and deployment details.
