@@ -50,6 +50,26 @@ Kargo UI  ──GET /logs?namespace=…&pod=…&analysisRun=…──▶  gatewa
 | `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
 | `LOKI_TENANT_ID` | — | X-Scope-OrgID header for multi-tenant Loki |
 
+
+## Kargo Configuration
+
+If you are using the kargo helmchart `ghcr.io/akuity/kargo-charts`, use the following in your `values.yaml`:
+More in the [docs](https://docs.kargo.io/operator-guide/advanced-installation/common-configurations#logs-from-job-metrics)
+
+```yaml
+rollouts:
+  integrationEnabled: true
+  # Stream smoke-test Job logs into the Kargo UI. Kargo streams the
+  # GET response body verbatim, so it needs PLAIN TEXT — Loki only
+  # returns JSON. The kargo-loki-gateway (see extra-manifests)
+  # queries Loki and flattens it to log lines. It also handles that
+  # Alloy stores the pod name as structured metadata (not a label).
+  logs:
+    enabled: true
+    urlTemplate: >-
+      http://kargo-loki-gateway.kargo.svc.cluster.local/logs?namespace=${{ jobNamespace }}&pod=${{ jobName }}&container=${{ container }}&analysisRun=${{ analysisRun }}
+```
+
 ## Development
 
 ```bash
