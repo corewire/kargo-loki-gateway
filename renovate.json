@@ -7,7 +7,7 @@
     {
       "description": "Chainsaw version in the Makefile",
       "customType": "regex",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "managerFilePatterns": ["Makefile"],
       "matchStrings": ["CHAINSAW_VERSION\\s*\\??=\\s*(?<currentValue>\\S+)"],
       "depNameTemplate": "kyverno/chainsaw",
       "datasourceTemplate": "github-releases"
@@ -15,7 +15,7 @@
     {
       "description": "Argo Rollouts version in Tiltfile and e2e setup script",
       "customType": "regex",
-      "managerFilePatterns": ["/^Tiltfile$/", "/^hack/e2e-infra/setup\\.sh$/"],
+      "managerFilePatterns": ["Tiltfile", "hack/e2e-infra/setup.sh"],
       "matchStrings": [
         "argo-rollouts/releases/download/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/",
         "ARGO_ROLLOUTS_VERSION:-(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
