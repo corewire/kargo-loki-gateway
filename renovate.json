@@ -19,6 +19,11 @@
       "matchManagers": ["gomod"],
       "matchDepTypes": ["indirect"],
       "enabled": true
+    },
+    {
+      "description": "Group all Go version updates (go.mod, Dockerfile, CI) into a single PR",
+      "matchDepNames": ["go", "golang"],
+      "groupName": "go version"
     }
   ]
 }
