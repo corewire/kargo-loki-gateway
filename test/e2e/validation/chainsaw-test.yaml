@@ -19,6 +19,18 @@ spec:
               trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
               sleep 1
 
+              BODY=""
+              deadline=$(( $(date +%s) + 30 ))
+              while [ "$(date +%s)" -le "$deadline" ]; do
+                BODY=$(curl -sf http://localhost:18081/healthz || true)
+                if [ "$BODY" = "ok" ]; then
+                  break
+                fi
+                echo "  waiting for gateway /healthz..."
+                sleep 1
+              done
+              [ "$BODY" = "ok" ] || { echo "FAIL: gateway never became ready"; exit 1; }
+
               CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:18081/logs)
               [ "$CODE" = "400" ] || { echo "FAIL: missing namespace expected 400, got $CODE"; exit 1; }
               echo "PASS: missing namespace → $CODE"
