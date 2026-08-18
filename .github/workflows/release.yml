@@ -41,7 +41,7 @@ jobs:
         id: version
         run: echo "version=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: src/go.mod
 
