@@ -15,7 +15,7 @@ allow_k8s_contexts(CONTEXT)
 local_resource(
     'argo-rollouts',
     'kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f - && ' +
-    'kubectl -n argo-rollouts apply -f https://github.com/argoproj/argo-rollouts/releases/download/v1.8.0/install.yaml && ' +
+    'kubectl -n argo-rollouts apply -f https://github.com/argoproj/argo-rollouts/releases/download/v1.9.1/install.yaml && ' +
     'kubectl -n argo-rollouts wait --for=condition=available deployment/argo-rollouts --timeout=120s',
     labels=['infra'],
 )
