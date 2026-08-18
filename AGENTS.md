@@ -12,7 +12,7 @@
 ## Project: kargo-loki-gateway
 
 HTTP gateway that bridges Kargo's log viewer and Loki.
-Go 1.26.3, stdlib only, deployed to the `kargo` namespace.
+Go 1.26.6, stdlib only, deployed to the `kargo` namespace.
 
 ## Quick Start
 
