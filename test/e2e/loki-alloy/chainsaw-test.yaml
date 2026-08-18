@@ -19,7 +19,16 @@ spec:
               PF=$!
               sleep 1
               trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
-              CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13100/loki/api/v1/labels)
+              CODE=""
+              deadline=$(( $(date +%s) + 30 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                CODE=$(curl -so /dev/null -w '%{http_code}' http://localhost:13100/loki/api/v1/labels || true)
+                if [ "$CODE" = "200" ]; then
+                  break
+                fi
+                echo "  waiting for Loki /labels..."
+                sleep 1
+              done
               [ "$CODE" = "200" ] || { echo "FAIL: /labels returned $CODE"; exit 1; }
               echo "PASS: Loki /labels → $CODE"
     - name: Alloy has shipped logs into Loki

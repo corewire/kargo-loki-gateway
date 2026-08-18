@@ -18,7 +18,16 @@ spec:
               PF=$!
               sleep 1
               trap 'kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true' EXIT
-              BODY=$(curl -sf http://localhost:18080/healthz)
+              BODY=""
+              deadline=$(( $(date +%s) + 30 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                BODY=$(curl -sf http://localhost:18080/healthz || true)
+                if [ -n "$BODY" ]; then
+                  break
+                fi
+                echo "  waiting for gateway /healthz..."
+                sleep 1
+              done
               echo "Response: $BODY"
               [ "$BODY" = "ok" ] || { echo "FAIL: expected 'ok', got '$BODY'"; exit 1; }
               echo "PASS"
