@@ -4,7 +4,7 @@
 
 - **Name**: kargo-loki-gateway
 - **Description**: HTTP gateway that bridges Kargo's log viewer and Loki
-- **Language**: Go 1.26.3
+- **Language**: Go 1.26.6
 - **Module**: github.com/corewire/kargo-loki-gateway
 - **Dependencies**: stdlib only
 - **Image**: `ghcr.io/corewire/kargo-loki-gateway`

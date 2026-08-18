@@ -3,6 +3,27 @@
   "extends": ["config:recommended"],
   "minimumReleaseAge": "3 days",
   "postUpdateOptions": ["gomodTidy"],
+  "customManagers": [
+    {
+      "description": "Chainsaw version in the Makefile",
+      "customType": "regex",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["CHAINSAW_VERSION\\s*\\??=\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "kyverno/chainsaw",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "description": "Argo Rollouts version in Tiltfile and e2e setup script",
+      "customType": "regex",
+      "managerFilePatterns": ["/^Tiltfile$/", "/^hack/e2e-infra/setup\\.sh$/"],
+      "matchStrings": [
+        "argo-rollouts/releases/download/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/",
+        "ARGO_ROLLOUTS_VERSION:-(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "argoproj/argo-rollouts",
+      "datasourceTemplate": "github-releases"
+    }
+  ],
   "packageRules": [
     {
       "description": "Automerge minor, patch, and digest updates",
@@ -24,6 +45,12 @@
       "description": "Group all Go version updates (go.mod, Dockerfile, CI) into a single PR",
       "matchDepNames": ["go", "golang"],
       "groupName": "go version"
+    },
+    {
+      "description": "Keep the go directive on the latest patch release (default 'replace' strategy never bumps it)",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
     }
   ]
 }

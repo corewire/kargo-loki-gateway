@@ -3,7 +3,7 @@ project:
   name: kargo-loki-gateway
   description: "HTTP gateway that bridges Kargo's log viewer and Loki"
   module: github.com/corewire/kargo-loki-gateway
-  go_version: "1.26.3"
+  go_version: "1.26.6"
   license: MIT
   namespace: kargo
 config:
