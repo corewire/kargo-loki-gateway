@@ -83,3 +83,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "${{ steps.version.outputs.version }}"
           git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Run release workflow on tag
+        # Tags pushed using the default GITHUB_TOKEN do not trigger other
+        # workflows, so the release workflow must be started explicitly.
+        if: steps.changes.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml --ref "${{ steps.version.outputs.version }}"
