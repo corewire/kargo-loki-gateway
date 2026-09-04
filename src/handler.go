@@ -12,6 +12,21 @@ import (
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
+// maxGeneratedNameBase mirrors apiserver name generation: a generateName base
+// is truncated to 63-5 chars before the 5-char random suffix is appended.
+const maxGeneratedNameBase = 58
+
+// podNamePrefix returns the leading part of the pod name the apiserver derives
+// from a Job name. Kargo passes the Job name, but the Job controller sets
+// generateName to name+"-", so a Job name over 57 chars loses its tail (and the
+// dash) in the pod name and an untruncated regex would never match.
+func podNamePrefix(job string) string {
+	if len(job) > maxGeneratedNameBase {
+		return job[:maxGeneratedNameBase]
+	}
+	return job
+}
+
 // buildQuery constructs a LogQL query. Pod name is Alloy structured metadata,
 // not a stream label, so it must be filtered after the selector with | pod=~.
 func buildQuery(ns, pod, container string) string {
@@ -21,7 +36,7 @@ func buildQuery(ns, pod, container string) string {
 	}
 	q := "{" + sel + "}"
 	if pod != "" {
-		q += fmt.Sprintf(" | pod=~%q", pod+".*")
+		q += fmt.Sprintf(" | pod=~%q", podNamePrefix(pod)+".*")
 	}
 	return q
 }

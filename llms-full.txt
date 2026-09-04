@@ -50,6 +50,7 @@ Kargo UI  ──GET /logs?namespace&pod&container&analysisRun──▶  gateway 
 | Test | Description |
 |---|---|
 | `TestBuildQuery` | — |
+| `TestPodNamePrefix` | — |
 | `TestNameValidation` | — |
 | `TestQueryLokiSorted` | — |
 | `TestQueryLokiEmpty` | — |
