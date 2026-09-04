@@ -18,10 +18,36 @@ func TestBuildQuery(t *testing.T) {
 		},
 		{"demo", "", "", `{namespace="demo"}`},
 		{"demo", "job1", "", `{namespace="demo"} | pod=~"job1.*"`},
+		{
+			// Job name is 59 chars, so the pod name is truncated to
+			// 07a707fc-...-596a5ed7d2e9.argocd-app-lifecycle.<random>.
+			"demo", "07a707fc-342f-47b0-a999-596a5ed7d2e9.argocd-app-lifecycle.1", "",
+			`{namespace="demo"} | pod=~"07a707fc-342f-47b0-a999-596a5ed7d2e9.argocd-app-lifecycle..*"`,
+		},
 	}
 	for _, c := range cases {
 		if got := buildQuery(c.ns, c.pod, c.container); got != c.want {
 			t.Errorf("buildQuery(%q,%q,%q)\n got  %q\n want %q", c.ns, c.pod, c.container, got, c.want)
+		}
+	}
+}
+
+func TestPodNamePrefix(t *testing.T) {
+	const metric = "07a707fc-342f-47b0-a999-596a5ed7d2e9.argocd-app-lifecycle.1"
+	cases := []struct{ job, want string }{
+		{"short.job.1", "short.job.1"},
+		{strings.Repeat("a", 57), strings.Repeat("a", 57)},
+		{strings.Repeat("a", 58), strings.Repeat("a", 58)},
+		{strings.Repeat("a", 70), strings.Repeat("a", 58)},
+		{metric, metric[:58]},
+	}
+	for _, c := range cases {
+		got := podNamePrefix(c.job)
+		if got != c.want {
+			t.Errorf("podNamePrefix(%q) = %q, want %q", c.job, got, c.want)
+		}
+		if len(got) > maxGeneratedNameBase {
+			t.Errorf("podNamePrefix(%q) length %d exceeds %d", c.job, len(got), maxGeneratedNameBase)
 		}
 	}
 }

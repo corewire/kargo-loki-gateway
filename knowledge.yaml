@@ -46,6 +46,8 @@ config:
 tests:
   - name: TestBuildQuery
     meaning: ""
+  - name: TestPodNamePrefix
+    meaning: ""
   - name: TestNameValidation
     meaning: ""
   - name: TestQueryLokiSorted

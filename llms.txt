@@ -18,7 +18,7 @@
 | `src/loki.go` | Loki query, time window, auth headers |
 | `src/handler.go` | HTTP handler, LogQL builder, input validation |
 | `src/main.go` | `app` struct, server wiring |
-| `src/main_test.go` | 17 unit tests |
+| `src/main_test.go` | 18 unit tests |
 | `charts/kargo-loki-gateway/` | Helm chart |
 | `hack/e2e-infra/` | kind-based e2e infra (Loki, Alloy, Argo Rollouts, gateway) |
 | `test/e2e/` | Chainsaw test suites |
