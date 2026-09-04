@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NS="e2e-infra"
-ARGO_ROLLOUTS_VERSION="${ARGO_ROLLOUTS_VERSION:-v1.9.1}"
+ARGO_ROLLOUTS_VERSION="${ARGO_ROLLOUTS_VERSION:-v1.10.0}"
 # Pass KUBECTL_CONTEXT=kind-gateway-e2e (or any context) to target a specific cluster.
 KC="${KUBECTL_CONTEXT:+--context ${KUBECTL_CONTEXT}}"
 K="kubectl $KC"
