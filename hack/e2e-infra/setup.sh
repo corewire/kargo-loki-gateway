@@ -13,7 +13,7 @@ $K create namespace "$NS" --dry-run=client -o yaml | $K apply -f -
 
 echo "[e2e-infra] Installing Argo Rollouts $ARGO_ROLLOUTS_VERSION (CRDs + controller)..."
 $K create namespace argo-rollouts --dry-run=client -o yaml | $K apply -f -
-$K -n argo-rollouts apply -f "https://github.com/argoproj/argo-rollouts/releases/download/${ARGO_ROLLOUTS_VERSION}/install.yaml"
+$K -n argo-rollouts apply --server-side -f "https://github.com/argoproj/argo-rollouts/releases/download/${ARGO_ROLLOUTS_VERSION}/install.yaml"
 
 echo "[e2e-infra] Deploying Loki..."
 $K apply -n "$NS" -f "$SCRIPT_DIR/loki.yaml"
