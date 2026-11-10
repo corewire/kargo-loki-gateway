@@ -85,7 +85,7 @@ jobs:
         # is much faster than letting containerd pull inside the cluster.
         run: |
           IMAGES=(
-            "quay.io/argoproj/argo-rollouts:v1.8.0"
+            "quay.io/argoproj/argo-rollouts:v1.10.0"
             "grafana/loki:3.1.1"
             "grafana/alloy:v1.7.5"
             "busybox:1.36"
