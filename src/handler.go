@@ -27,16 +27,17 @@ func podNamePrefix(job string) string {
 	return job
 }
 
-// buildQuery constructs a LogQL query. Pod name is Alloy structured metadata,
-// not a stream label, so it must be filtered after the selector with | pod=~.
-func buildQuery(ns, pod, container string) string {
-	sel := fmt.Sprintf("namespace=%q", ns)
+// buildQuery constructs a LogQL query. Alloy stores the pod name as structured
+// metadata, not a stream label, so it is filtered after the selector
+// (| pod=~...), which also matches a pod name stored as a stream label.
+func buildQuery(l queryLabels, ns, pod, container string) string {
+	sel := fmt.Sprintf("%s=%q", l.namespace, ns)
 	if container != "" {
-		sel += fmt.Sprintf(",container=%q", container)
+		sel += fmt.Sprintf(",%s=%q", l.container, container)
 	}
 	q := "{" + sel + "}"
 	if pod != "" {
-		q += fmt.Sprintf(" | pod=~%q", podNamePrefix(pod)+".*")
+		q += fmt.Sprintf(" | %s=~%q", l.pod, podNamePrefix(pod)+".*")
 	}
 	return q
 }
@@ -60,7 +61,7 @@ func (a *app) handleLogs(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), a.cfg.lokiTimeout)
 	defer cancel()
 	start, end := a.lokiWindow(ctx, ns, analysisRun)
-	logql := buildQuery(ns, pod, container)
+	logql := buildQuery(a.cfg.labels, ns, pod, container)
 	out, err := a.queryLoki(ctx, logql, start, end)
 	if err != nil {
 		slog.Error("loki query failed", "err", err, "logql", logql)

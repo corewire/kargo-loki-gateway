@@ -17,6 +17,11 @@ Alloy keeps stream-label cardinality low and stores the pod name as
 *structured metadata*, not a stream label. Putting `pod=~"..."` inside `{}`
 matches nothing; the filter must come after the selector: `| pod=~"..."`.
 
+Log shippers also name these labels differently. The defaults match Alloy
+(`namespace`, `container`, `pod`). With the OpenTelemetry Collector's Kubernetes
+attributes, set `NAMESPACE_LABEL=k8s_namespace_name`,
+`CONTAINER_LABEL=k8s_container_name` and `POD_LABEL=k8s_pod_name`.
+
 ## What it does
 
 ```

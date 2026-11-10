@@ -43,8 +43,21 @@ config:
   - env: LOKI_TENANT_ID
     default: ""
     meaning: "X-Scope-OrgID header for multi-tenant Loki"
+  - env: CONTAINER_LABEL
+    default: "container"
+    meaning: "Stream label holding the container name (e.g. k8s_container_name)"
+  - env: NAMESPACE_LABEL
+    default: "namespace"
+    meaning: "Stream label holding the namespace (e.g. k8s_namespace_name for the OpenTelemetry Collector)"
+  - env: POD_LABEL
+    default: "pod"
+    meaning: "Label or structured metadata holding the pod name (e.g. k8s_pod_name)"
 tests:
   - name: TestBuildQuery
+    meaning: ""
+  - name: TestBuildQueryCustomLabels
+    meaning: ""
+  - name: TestLoadConfigLabels
     meaning: ""
   - name: TestPodNamePrefix
     meaning: ""

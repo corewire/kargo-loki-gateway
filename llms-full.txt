@@ -43,6 +43,9 @@ Kargo UI  ──GET /logs?namespace&pod&container&analysisRun──▶  gateway 
 | `LOKI_PASSWORD` | — | Basic auth password / API key |
 | `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
 | `LOKI_TENANT_ID` | — | X-Scope-OrgID header for multi-tenant Loki |
+| `CONTAINER_LABEL` | `container` | Stream label holding the container name (e.g. k8s_container_name) |
+| `NAMESPACE_LABEL` | `namespace` | Stream label holding the namespace (e.g. k8s_namespace_name for the OpenTelemetry Collector) |
+| `POD_LABEL` | `pod` | Label or structured metadata holding the pod name (e.g. k8s_pod_name) |
 
 
 ## Unit tests (src/main_test.go)
@@ -50,6 +53,8 @@ Kargo UI  ──GET /logs?namespace&pod&container&analysisRun──▶  gateway 
 | Test | Description |
 |---|---|
 | `TestBuildQuery` | — |
+| `TestBuildQueryCustomLabels` | — |
+| `TestLoadConfigLabels` | — |
 | `TestPodNamePrefix` | — |
 | `TestNameValidation` | — |
 | `TestQueryLokiSorted` | — |

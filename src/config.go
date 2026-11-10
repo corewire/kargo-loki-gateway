@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log/slog"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +35,36 @@ type config struct {
 	lokiBearerToken string
 	//+docs:config env="LOKI_TENANT_ID" default="" meaning="X-Scope-OrgID header for multi-tenant Loki"
 	lokiTenantID string
+	// Names the log shipper gives the namespace, container and pod. The
+	// defaults match Grafana Alloy / k8s-monitoring.
+	//+docs:config env="NAMESPACE_LABEL" default="namespace" meaning="Stream label holding the namespace (e.g. k8s_namespace_name for the OpenTelemetry Collector)"
+	//+docs:config env="CONTAINER_LABEL" default="container" meaning="Stream label holding the container name (e.g. k8s_container_name)"
+	//+docs:config env="POD_LABEL" default="pod" meaning="Label or structured metadata holding the pod name (e.g. k8s_pod_name)"
+	labels queryLabels
+}
+
+// queryLabels names the labels buildQuery filters on.
+type queryLabels struct {
+	namespace, container, pod string
+}
+
+var defaultLabels = queryLabels{namespace: "namespace", container: "container", pod: "pod"}
+
+// labelRe matches a valid LogQL label name.
+var labelRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// envLabel returns the label name set in k, or def when it is unset or not a
+// valid LogQL label name.
+func envLabel(k, def string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		return def
+	}
+	if !labelRe.MatchString(v) {
+		slog.Warn("invalid label name, using the default", "env", k, "value", v, "default", def)
+		return def
+	}
+	return v
 }
 
 func envDur(k string, def time.Duration) time.Duration {
@@ -76,5 +108,10 @@ func loadConfig() config {
 		lokiPassword:    os.Getenv("LOKI_PASSWORD"),
 		lokiBearerToken: os.Getenv("LOKI_BEARER_TOKEN"),
 		lokiTenantID:    os.Getenv("LOKI_TENANT_ID"),
+		labels: queryLabels{
+			namespace: envLabel("NAMESPACE_LABEL", defaultLabels.namespace),
+			container: envLabel("CONTAINER_LABEL", defaultLabels.container),
+			pod:       envLabel("POD_LABEL", defaultLabels.pod),
+		},
 	}
 }

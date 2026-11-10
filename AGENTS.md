@@ -18,7 +18,7 @@ Go 1.27.1, stdlib only, deployed to the `kargo` namespace.
 
 ```bash
 make devenv    # create kind cluster + tilt up
-make test      # unit tests (18 tests, no cluster needed)
+make test      # unit tests (20 tests, no cluster needed)
 make e2e-infra # deploy kind infra
 make e2e       # Chainsaw e2e tests
 ```

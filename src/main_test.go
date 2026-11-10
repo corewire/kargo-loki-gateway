@@ -26,9 +26,41 @@ func TestBuildQuery(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildQuery(c.ns, c.pod, c.container); got != c.want {
+		if got := buildQuery(defaultLabels, c.ns, c.pod, c.container); got != c.want {
 			t.Errorf("buildQuery(%q,%q,%q)\n got  %q\n want %q", c.ns, c.pod, c.container, got, c.want)
 		}
+	}
+}
+
+func TestBuildQueryCustomLabels(t *testing.T) {
+	otel := queryLabels{namespace: "k8s_namespace_name", container: "k8s_container_name", pod: "k8s_pod_name"}
+	cases := []struct{ ns, pod, container, want string }{
+		{
+			"demo", "abc.smoke-test.1", "smoke-test",
+			`{k8s_namespace_name="demo",k8s_container_name="smoke-test"} | k8s_pod_name=~"abc.smoke-test.1.*"`,
+		},
+		{"demo", "job1", "", `{k8s_namespace_name="demo"} | k8s_pod_name=~"job1.*"`},
+	}
+	for _, c := range cases {
+		if got := buildQuery(otel, c.ns, c.pod, c.container); got != c.want {
+			t.Errorf("buildQuery(%q,%q,%q)\n got  %q\n want %q", c.ns, c.pod, c.container, got, c.want)
+		}
+	}
+}
+
+func TestLoadConfigLabels(t *testing.T) {
+	for _, k := range []string{"NAMESPACE_LABEL", "CONTAINER_LABEL", "POD_LABEL"} {
+		t.Setenv(k, "")
+	}
+	if got := loadConfig().labels; got != defaultLabels {
+		t.Errorf("default labels = %+v, want %+v", got, defaultLabels)
+	}
+	t.Setenv("NAMESPACE_LABEL", "k8s_namespace_name")
+	t.Setenv("CONTAINER_LABEL", "k8s_container_name")
+	t.Setenv("POD_LABEL", "k8s.pod.name") // not a LogQL label name: falls back
+	want := queryLabels{namespace: "k8s_namespace_name", container: "k8s_container_name", pod: "pod"}
+	if got := loadConfig().labels; got != want {
+		t.Errorf("labels = %+v, want %+v", got, want)
 	}
 }
 

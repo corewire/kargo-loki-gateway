@@ -17,6 +17,10 @@ env:
   # LOKI_PASSWORD: ""       # basic auth password / API key
   # LOKI_BEARER_TOKEN: ""   # bearer token (e.g. auth proxy)
   # LOKI_TENANT_ID: ""      # X-Scope-OrgID for multi-tenant Loki
+  # Label names, Alloy's by default. OpenTelemetry Collector:
+  # NAMESPACE_LABEL: "k8s_namespace_name"
+  # CONTAINER_LABEL: "k8s_container_name"
+  # POD_LABEL: "k8s_pod_name"
 
 resources:
   requests:

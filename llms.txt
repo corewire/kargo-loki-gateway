@@ -18,7 +18,7 @@
 | `src/loki.go` | Loki query, time window, auth headers |
 | `src/handler.go` | HTTP handler, LogQL builder, input validation |
 | `src/main.go` | `app` struct, server wiring |
-| `src/main_test.go` | 18 unit tests |
+| `src/main_test.go` | 20 unit tests |
 | `charts/kargo-loki-gateway/` | Helm chart |
 | `hack/e2e-infra/` | kind-based e2e infra (Loki, Alloy, Argo Rollouts, gateway) |
 | `test/e2e/` | Chainsaw test suites |
@@ -39,6 +39,9 @@
 | `LOKI_PASSWORD` | — | Basic auth password / API key |
 | `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
 | `LOKI_TENANT_ID` | — | X-Scope-OrgID header for multi-tenant Loki |
+| `CONTAINER_LABEL` | `container` | Stream label holding the container name (e.g. k8s_container_name) |
+| `NAMESPACE_LABEL` | `namespace` | Stream label holding the namespace (e.g. k8s_namespace_name for the OpenTelemetry Collector) |
+| `POD_LABEL` | `pod` | Label or structured metadata holding the pod name (e.g. k8s_pod_name) |
 
 
 ## Full reference

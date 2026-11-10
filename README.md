@@ -17,6 +17,11 @@ Alloy keeps stream-label cardinality low and stores the pod name as
 *structured metadata*, not a stream label. Putting `pod=~"..."` inside `{}`
 matches nothing; the filter must come after the selector: `| pod=~"..."`.
 
+Log shippers also name these labels differently. The defaults match Alloy
+(`namespace`, `container`, `pod`). With the OpenTelemetry Collector's Kubernetes
+attributes, set `NAMESPACE_LABEL=k8s_namespace_name`,
+`CONTAINER_LABEL=k8s_container_name` and `POD_LABEL=k8s_pod_name`.
+
 ## What it does
 
 ```
@@ -49,6 +54,9 @@ Kargo UI  ──GET /logs?namespace=…&pod=…&analysisRun=…──▶  gatewa
 | `LOKI_PASSWORD` | — | Basic auth password / API key |
 | `LOKI_BEARER_TOKEN` | — | Bearer token (e.g. Loki behind an auth proxy) |
 | `LOKI_TENANT_ID` | — | X-Scope-OrgID header for multi-tenant Loki |
+| `CONTAINER_LABEL` | `container` | Stream label holding the container name (e.g. k8s_container_name) |
+| `NAMESPACE_LABEL` | `namespace` | Stream label holding the namespace (e.g. k8s_namespace_name for the OpenTelemetry Collector) |
+| `POD_LABEL` | `pod` | Label or structured metadata holding the pod name (e.g. k8s_pod_name) |
 
 
 ## Kargo Configuration
